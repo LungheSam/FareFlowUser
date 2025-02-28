@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FareFlow User App</title>
+    <link rel="stylesheet" href="teststyles.css">
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container ">
+        <header>
+            <div class="header-content">
+                <h1 onclick="showHome()">FareFlow</h1>
+                <div class="user-image" onclick="showProfile()">
+                    <i class='bx bxs-user'></i>
+                </div>
+                
+            </div>
+        </header>
+
+
+        <main id="main-content">
+            <div id="home" class="page">
+                <h2>
+                    <span class="salutation">Good Afternoon <span class="user-name">Samuel</span>!</span>
+                </h2>
+                <div class="card-home" id="home-message-container">
+                    <p id="home-message">🚀 FareFlow makes commuting easy, affordable, and seamless!</p></div>
+                <div class="card-home">
+                    <p>Current Balance:</p> 
+                    <h3 id="balance" class="balance">5000 UGX</h3>
+                </div>
+                <div class="card-home">
+                    <p>Recent Transactions:</p>
+                    <ul id="recent-transactions">
+                        <li> <span class="date">Feb 27</span> - 06:00 am - UGX 4000.00</li>
+                        <li><span class="date">Feb 24</span> - 04:55 pm - UGX 1500.00</li>
+                        <li><span class="date">Feb 24</span> - 04:55 pm - UGX 1500.00</li>
+                        <li><span class="date">Feb 24</span> - 04:55 pm - UGX 1500.00</li>
+                    </ul>
+                </div>
+                <button id="find-near-taxi-bus" class="" onclick="showFindTaxiPage()">
+                    <i class='bx bxs-bus'></i> Find a near taxi bus
+                </button>
+            </div>
+            <div id="find-taxi-page" class="page hidden">
+                
+                <div class="title"><button onclick="showHomePage()"><i class='bx bxs-left-arrow-circle' ></i></button><h1 style="margin-left: 0.5rem;"> Find a Taxi Bus</h1></div>
+                <div class="search-container">
+                    <i class='bx bx-search search-icon'></i>
+                    <input type="text" id="search-bar" placeholder="Filter by destination..." oninput="filterBuses()">
+                </div>
+                <div id="map"></div>
+            </div>
+
+            <div id="load-balance" class="page hidden">
+                <div class="title"><button onclick="showProfile()"><i class='bx bxs-left-arrow-circle' ></i></button><h2 style="margin-left: 0.5rem;"> Load Balance</h2></div>
+                <div class="card-home" style="background-color:#123524; color:#fff">
+                    <p style="font-weight: 600;">Current Balance:</p> 
+                    <h3 id="balance" class="balance" style="color:#fff">5000 UGX</h3>
+                </div>
+                
+                <div class="load-amount-container">
+                    <input type="number" id="load-amount" placeholder="Enter amount in UGX" />
+                </div>
+                <button onclick="loadBalance()">Load</button>
+                <div id="load-status" class="hidden"></div>
+            </div>
+
+            <div id="transaction-history" class="page hidden">
+                <div class="title">
+                    <button onclick="showProfile()">
+                        <i class='bx bxs-left-arrow-circle'></i>
+                    </button>
+                    <h2 style="margin-left: 0.5rem;">Transaction History</h2>
+                </div>
+            
+                <!-- Total Money Used Section -->
+                <div class="card-home card-total-money">
+                    <p>Total Money Used:</p>
+                    <h3 id="total-money" class="total-money">50,000 UGX</h3>
+                </div>
+            
+                <!-- Transaction List -->
+                <ul id="transaction-list">
+                    <li><span class="date">Feb 27</span> <span>06:00 AM</span><span>UGX 4,000</span></li>
+                    <li><span class="date">Feb 27</span> <span>06:00 AM</span><span>UGX 4,000</span></li>
+                    <li><span class="date">Feb 27</span> <span>06:00 AM</span><span>UGX 4,000</span></li>
+                    <li><span class="date">Feb 27</span> <span>06:00 AM</span><span>UGX 4,000</span></li>
+                    
+                </ul>
+            </div>
+            
+
+            <div id="profile" class="page hidden">
+                <h2>My Account</h2>
+                <div class="user-profile card-profile" onclick="showUserProfile()">
+                    <div class="user-image-profile">
+                        <i class='bx bxs-user'></i>
+                    </div>
+                    <div class="user-profile-content">
+                        <h2>Samuel Lunghe</h2>
+                        <p>+256742618584</p>
+                    </div>
+                    <div class="user-profile-arrow">
+                        <i class='bx bx-chevron-right'></i>
+                    </div>
+                </div>
+                <div class="profile-menu card-profile">
+                    <button onclick="showLoadBalance()">
+                        <p><i class='bx bx-wallet'></i> Load Balance</p>
+                        <div class="user-profile-arrow"><i class='bx bx-chevron-right'></i></div>
+                    </button>
+                    
+                    <button onclick="showTransactionHistory()">
+                        <p><i class='bx bx-history'></i> Transaction History</p>
+                        <div class="user-profile-arrow"><i class='bx bx-chevron-right'></i></div>
+                    </button>
+                
+                    <button onclick="showAbout()">
+                        <p><i class='bx bx-info-circle'></i> About Us</p>
+                        <div class="user-profile-arrow"><i class='bx bx-chevron-right'></i></div>
+                    </button>
+                
+                    <button onclick="showContact()">
+                        <p><i class='bx bx-phone'></i> Contact Us</p>
+                        <div class="user-profile-arrow"><i class='bx bx-chevron-right'></i></div>
+                    </button>
+                </div>
+                
+                
+            </div>
+
+            <div id="user-profile" class="page hidden">
+                <div class="title"><button onclick="showProfile()"><i class='bx bxs-left-arrow-circle' ></i></button><h2 style="margin-left: 0.5rem;"> User Profile</h2></div>
+                
+                <div class="user-profile-card">
+                    <div class="profile-field">
+                        <p class="label">First Name</p>
+                        <p class="value">Samuel</p>
+                    </div>
+                    <div class="profile-field">
+                        <p class="label">Last Name</p>
+                        <p class="value">Lunghe</p>
+                    </div>
+                    <div class="profile-field">
+                        <p class="label">Email</p>
+                        <p class="value">samuellunghe@gmail.com</p>
+                    </div>
+                    <div class="profile-field">
+                        <p class="label">Phone</p>
+                        <p class="value">123-456-7890</p>
+                    </div>
+                    <div class="profile-field">
+                        <p class="label">Card UID</p>
+                        <p class="value">122235</p>
+                    </div>
+                </div>
+            </div>
+            
+
+            <div id="about" class="page hidden">
+                <div class="title">
+                    <button onclick="showProfile()">
+                        <i class='bx bxs-left-arrow-circle'></i>
+                    </button>
+                    <h2 style="margin-left: 0.5rem;"> About Us</h2>
+                </div>
+                
+                <h3>Know more about us</h3>
+            
+                <div class="social-cards">
+                    <div class="card-about" onclick="redirectTo('https://twitter.com')">
+                        <div class="card-icon">
+                            <i class='bx bxl-twitter'></i>
+                        </div>
+                        <div class="card-text">
+                            <h4>Twitter</h4>
+                        </div>
+                    </div>
+            
+                    <div class="card-about" onclick="redirectTo('https://instagram.com')">
+                        <div class="card-icon">
+                            <i class='bx bxl-instagram-alt'></i>
+                        </div>
+                        <div class="card-text">
+                            <h4>Instagram</h4>
+                        </div>
+                    </div>
+            
+                    <div class="card-about" onclick="redirectTo('https://linkedin.com')">
+                        <div class="card-icon">
+                            <i class='bx bxl-linkedin-square'></i>
+                        </div>
+                        <div class="card-text">
+                            <h4>LinkedIn</h4>
+                        </div>
+                    </div>
+            
+                    <div class="card-about" onclick="redirectTo('https://yourwebsite.com')">
+                        <div class="card-icon">
+                            <i class='bx bx-globe'></i>
+                        </div>
+                        <div class="card-text">
+                            <h4>Website</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+
+            <div id="contact" class="page hidden">
+                <div class="title">
+                    <button onclick="showProfile()">
+                        <i class='bx bxs-left-arrow-circle'></i>
+                    </button>
+                    <h2 style="margin-left: 0.5rem;"> Contact Us</h2>
+                </div>
+            
+                <p>If you have any questions, feel free to reach out!</p>
+            
+                <div class="contact-options">
+                    <div class="card-contact" onclick="gotoWhatsApp()">
+                        <i class='bx bxl-whatsapp'></i>
+                        <div class="contact-info">
+                            <h4>WhatsApp</h4>
+                            <p>Fastest Support</p>
+                        </div>
+                    </div>
+            
+                    <div class="card-contact" onclick="gotoCallAPI()">
+                        <i class='bx bxs-phone-call'></i>
+                        <div class="contact-info">
+                            <h4>Call</h4>
+                            <p>Speak to Us</p>
+                        </div>
+                    </div>
+            
+                    <div class="card-contact" onclick="gotoEmail()">
+                        <i class='bx bxs-envelope'></i>
+                        <div class="contact-info">
+                            <h4>Email Us</h4>
+                            <p>Write an email to us</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            
+        </main>
+    </div>
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="testscripts.js" defer></script>
+    <script src="firebase-auth.js" type="module"></script>"
+
+
+
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js"></script>
+
+</body>
+</html>
