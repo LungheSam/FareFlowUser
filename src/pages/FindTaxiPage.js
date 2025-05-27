@@ -2,10 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import { useAuth } from '../contexts/AuthContext';
-import { collection, getDocs, query, where, onSnapshot } from 'firebase/firestore';
-import { db } from '../services/firebase';
+import { dbRT } from '../services/firebase';
+import { ref, onValue } from 'firebase/database';
 
-// Fix for default marker icons in Leaflet
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 delete L.Icon.Default.prototype._getIconUrl;
@@ -19,73 +18,63 @@ const FindTaxiPage = () => {
   const navigate = useNavigate();
   const { userData } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
-  const [availableTaxis, setAvailableTaxis] = useState([]);
+  const [allTaxis, setAllTaxis] = useState([]);
   const [filteredTaxis, setFilteredTaxis] = useState([]);
   const [loading, setLoading] = useState(true);
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
   const markersRef = useRef([]);
 
-  // Fetch available taxis from Firestore
+  // Fetch from Realtime Database
   useEffect(() => {
-    let unsubscribe;
+    const busesRef = ref(dbRT, 'buses');
 
-    const fetchTaxis = async () => {
-      try {
-        const taxisCollection = collection(db, 'buses');
-        const q = query(taxisCollection, where('active', '==', true));
-        
-        // Use onSnapshot for real-time updates
-        unsubscribe = onSnapshot(q, (querySnapshot) => {
-          const taxis = [];
-          querySnapshot.forEach((doc) => {
-            taxis.push({ id: doc.id, ...doc.data() });
-          });
-          setAvailableTaxis(taxis);
-          setFilteredTaxis(taxis);
-          setLoading(false);
+    const unsubscribe = onValue(busesRef, (snapshot) => {
+      const data = snapshot.val();
+      const taxis = [];
+
+      if (data) {
+        Object.entries(data).forEach(([id, bus]) => {
+          if (bus.status) {
+            taxis.push({
+              id,
+              ...bus,
+              location: {
+                latitude: bus.location.latitude,
+                longitude: bus.location.longitude
+              },
+              routeName: bus.route?.departure+"->"+bus.route?.destination || 'Unknown',
+              destination: bus.route?.destination || '',
+              departure: bus.route?.departure || ''
+            });
+          }
         });
-      } catch (error) {
-        console.error("Error fetching taxis:", error);
-        setLoading(false);
       }
-    };
 
-    fetchTaxis();
+      setAllTaxis(taxis);
+      setLoading(false);
+      console.log(allTaxis);
+    });
 
-    return () => {
-      if (unsubscribe) unsubscribe();
-      if (mapRef.current) {
-        mapRef.current.remove();
-        mapRef.current = null;
-      }
-    };
+    return () => unsubscribe();
   }, []);
 
-  // Initialize map only when component is mounted and container is available
+  // Initialize map
   useEffect(() => {
-    if (loading || !mapContainerRef.current || mapRef.current) return;
+    if (!mapContainerRef.current || mapRef.current) return;
 
-    // Default to Kampala coordinates
     const defaultPosition = [0.3136, 32.5811];
-    
-    // Initialize map
-    mapRef.current = L.map(mapContainerRef.current, {
-      preferCanvas: true,
-    }).setView(defaultPosition, 13);
 
+    mapRef.current = L.map(mapContainerRef.current).setView(defaultPosition, 13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      attribution: '&copy; OpenStreetMap contributors'
     }).addTo(mapRef.current);
 
-    // Try to get user's current location
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const { latitude, longitude } = position.coords;
-          mapRef.current.setView([latitude, longitude], 15);
-          
-          // Add user marker
+          mapRef.current.setView([latitude, longitude], 14);
           L.marker([latitude, longitude], {
             icon: L.icon({
               iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png',
@@ -93,131 +82,117 @@ const FindTaxiPage = () => {
               iconAnchor: [12, 41],
               popupAnchor: [1, -34],
             })
-          })
-          .addTo(mapRef.current)
-          .bindPopup('Your Location')
-          .openPopup();
-        },
-        () => {
-          // Use default position if geolocation fails
-          mapRef.current.setView(defaultPosition, 13);
+          }).addTo(mapRef.current).bindPopup('Your Location').openPopup();
         }
       );
     }
-  }, [loading]);
+  }, []);
 
-  // Update taxi markers on map
+  // Filter buses based on query
   useEffect(() => {
-    if (!mapRef.current || loading || !filteredTaxis.length) return;
+    const filtered = !searchQuery
+      ? allTaxis
+      : allTaxis.filter(taxi =>
+          (taxi.destination && taxi.destination.toLowerCase().includes(searchQuery.toLowerCase())) ||
+          (taxi.departure && taxi.departure.toLowerCase().includes(searchQuery.toLowerCase()))
+        );
 
-    // Clear existing markers
+    setFilteredTaxis(filtered);
+  }, [searchQuery, allTaxis]);
+
+  // Plot markers
+  useEffect(() => {
+    if (!mapRef.current) return;
+
     markersRef.current.forEach(marker => marker.remove());
     markersRef.current = [];
 
-    // Add new markers for each taxi
     filteredTaxis.forEach(taxi => {
-      if (taxi.location?.latitude && taxi.location?.longitude) {
-        const marker = L.marker([taxi.location.latitude, taxi.location.longitude], {
+      const { latitude, longitude } = taxi.location;
+      if (latitude && longitude) {
+        const marker = L.marker([latitude, longitude], {
           icon: L.icon({
-            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png',
-            iconSize: [25, 41],
+            iconUrl: 'front-of-bus.png',
+            // iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png',
+            iconSize: [25, 25],
+            // iconSize: [25, 41],
             iconAnchor: [12, 41],
             popupAnchor: [1, -34],
           })
         })
         .addTo(mapRef.current)
         .bindPopup(`
-          <b>${taxi.numberPlate || 'Taxi'}</b><br>
-          Route: ${taxi.route || 'Unknown'}<br>
-          Capacity: ${taxi.capacity || 'N/A'}<br>
-          ${taxi.driver ? `Driver: ${taxi.driver}` : ''}
+          <b>${taxi.id}</b><br/>
+          Route: ${taxi.routeName}<br/>
+          From: ${taxi.departure || 'Unknown'}<br/>
+          To: ${taxi.destination || 'Unknown'}<br/>
+          ${taxi.route?.fareAmount ? `Fare: ${taxi.route.fareAmount} UGX` : ''}
         `);
-
         markersRef.current.push(marker);
       }
     });
 
-    // Fit map to show all markers if there are multiple
     if (filteredTaxis.length > 1) {
       const bounds = L.latLngBounds(
-        filteredTaxis
-          .filter(t => t.location)
-          .map(t => [t.location.latitude, t.location.longitude])
+        filteredTaxis.map(t => [t.location.latitude, t.location.longitude])
       );
       mapRef.current.fitBounds(bounds, { padding: [50, 50] });
     }
-  }, [filteredTaxis, loading]);
-
-  const filterBuses = () => {
-    if (!searchQuery) {
-      setFilteredTaxis(availableTaxis);
-      return;
-    }
-
-    const filtered = availableTaxis.filter(taxi =>
-      taxi.route?.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-    setFilteredTaxis(filtered);
-  };
+  }, [filteredTaxis]);
 
   const handleBackClick = () => {
     navigate('/');
   };
 
   return (
-    <div id="container" className="container">
+    <div className="container">
       <Header onProfileClick={() => navigate('/profile')} />
-      
-      <main id="main-content">
-        <div id="find-taxi-page" className="page">
+      <main>
+        <div className="page">
           <div className="title">
             <button onClick={handleBackClick}>
               <i className='bx bxs-left-arrow-circle'></i>
             </button>
-            <h2 style={{ marginLeft: '0.5rem' }}>Find a Taxi Bus</h2>
+            <h2>Find a Taxi Bus</h2>
           </div>
-          
+
           <div className="search-container">
             <i className='bx bx-search search-icon'></i>
             <input
               type="text"
-              id="search-bar"
-              placeholder="Filter by destination..."
+              placeholder="Filter by destination or departure..."
               value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                filterBuses();
-              }}
+              onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-          
+
+          {/* Message above the map */}
           {loading ? (
             <div className="loading-message">Loading taxi locations...</div>
           ) : filteredTaxis.length === 0 ? (
             <div className="no-results">
-              {searchQuery ? 
-                'No taxis found for this route' : 
-                'No available taxis at this time'}
+              {allTaxis.length === 0
+                ? 'No available taxi buses at this time.'
+                : 'No taxis found for this route.'}
             </div>
-          ) : (
-            <div 
-              id="map" 
-              ref={mapContainerRef}
-              style={{ 
-                height: '500px', 
-                width: '100%',
-                zIndex: 0 // Ensure proper stacking context
-              }}
-            ></div>
-          )}
-          
+          ) : null}
+
+          {/* Always show map */}
+          <div
+            id="map"
+            ref={mapContainerRef}
+            style={{ height: '500px', width: '100%' }}
+          />
+
+          {/* Optional: List taxis */}
           <div className="taxi-list">
             {filteredTaxis.slice(0, 5).map(taxi => (
               <div key={taxi.id} className="taxi-card">
                 <div className="taxi-info">
-                  <h4>{taxi.numberPlate}</h4>
-                  <p>{taxi.route}</p>
-                  <p>Capacity: {taxi.capacity || 'N/A'}</p>
+                  <h4>{taxi.id}</h4>
+                  <p>{taxi.routeName}</p>
+                  <p>From: {taxi.departure || 'Unknown'}</p>
+                  <p>To: {taxi.destination || 'Unknown'}</p>
                 </div>
                 {taxi.driver && (
                   <div className="driver-info">
@@ -235,3 +210,5 @@ const FindTaxiPage = () => {
 };
 
 export default FindTaxiPage;
+
+
