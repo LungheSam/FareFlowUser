@@ -31,7 +31,6 @@ const LoginPage = () => {
       <h1 style={{ textAlign: 'center' }}>
         Welcome to <strong>FareFlow</strong>
       </h1>
-      {/* <h2>Login</h2> */}
       {error && <div style={{ color: 'red' }}>{error}</div>}
       <form onSubmit={handleSubmit}>
         <input

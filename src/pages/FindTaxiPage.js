@@ -32,7 +32,7 @@ const FindTaxiPage = () => {
 
     const fetchTaxis = async () => {
       try {
-        const taxisCollection = collection(db, 'vehicles');
+        const taxisCollection = collection(db, 'buses');
         const q = query(taxisCollection, where('active', '==', true));
         
         // Use onSnapshot for real-time updates

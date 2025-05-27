@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { use, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import Header from '../components/Header';
@@ -9,12 +9,13 @@ const LoadBalancePage = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const { userData, updateBalance } = useAuth();
+  const [newBalance,setNewBalance]=useState(0);
   const navigate = useNavigate();
 
   const handleLoadBalance = async (e) => {
     e.preventDefault();
     
-    if (!amount || isNaN(amount) || Number(amount) <= 0) {
+    if (!amount || isNaN(amount) || Number(amount) <= 0 || Number(amount)>50000) {
       setError('Please enter a valid amount');
       return;
     }
@@ -23,9 +24,20 @@ const LoadBalancePage = () => {
       setLoading(true);
       setError('');
       setSuccess('');
-      
+      setNewBalance(userData.balance+amount);
       await updateBalance(Number(amount));
-      
+      await fetch('http://localhost:5000/notify-balance-load', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cardUID: userData.cardUID,
+          amount,
+          newBalance,
+          email: userData.email,
+          phone: userData.phone,
+          firstName: userData.firstName,
+        })
+      });
       setSuccess(`Successfully loaded ${amount} UGX`);
       setAmount('');
       setTimeout(() => setSuccess(''), 3000);
