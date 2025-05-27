@@ -26,7 +26,7 @@ const LoadBalancePage = () => {
       setSuccess('');
       setNewBalance(userData.balance+amount);
       await updateBalance(Number(amount));
-      await fetch('http://localhost:5000/notify-balance-load', {
+      await fetch('https://fareflow-server.onrender.com/notify-balance-load', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
