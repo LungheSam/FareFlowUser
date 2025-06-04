@@ -24,7 +24,8 @@ const LoadBalancePage = () => {
       setLoading(true);
       setError('');
       setSuccess('');
-      setNewBalance(userData.balance+amount);
+      setNewBalance(Number(userData.balance)+Number(amount));
+      // console.log(Number(userData.balance)+Number(amount));
       await updateBalance(Number(amount));
       await fetch('https://fareflow-server.onrender.com/notify-balance-load', {
         method: 'POST',
