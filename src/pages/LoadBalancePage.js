@@ -33,7 +33,7 @@ const LoadBalancePage = () => {
         body: JSON.stringify({
           cardUID: userData.cardUID,
           amount,
-          newBalance,
+          newBalance:Number(userData.balance)+Number(amount),
           email: userData.email,
           phone: userData.phone,
           firstName: userData.firstName,
