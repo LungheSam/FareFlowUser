@@ -7,6 +7,7 @@ import { ref, onValue } from 'firebase/database';
 
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: require('leaflet/dist/images/marker-icon-2x.png'),
@@ -25,17 +26,15 @@ const FindTaxiPage = () => {
   const mapRef = useRef(null);
   const markersRef = useRef([]);
 
-  // Fetch from Realtime Database
   useEffect(() => {
     const busesRef = ref(dbRT, 'buses');
-
     const unsubscribe = onValue(busesRef, (snapshot) => {
       const data = snapshot.val();
       const taxis = [];
 
       if (data) {
         Object.entries(data).forEach(([id, bus]) => {
-          if (bus.status) {
+          if (bus.status && bus.location?.latitude && bus.location?.longitude) {
             taxis.push({
               id,
               ...bus,
@@ -43,9 +42,11 @@ const FindTaxiPage = () => {
                 latitude: bus.location.latitude,
                 longitude: bus.location.longitude
               },
-              routeName: bus.route?.departure+"->"+bus.route?.destination || 'Unknown',
+              departure: bus.route?.departure || '',
               destination: bus.route?.destination || '',
-              departure: bus.route?.departure || ''
+              vias: bus.route?.vias || [],
+              fareAmount: bus.route?.fareAmount,
+              type: bus.route?.type || 'fixed'
             });
           }
         });
@@ -53,13 +54,11 @@ const FindTaxiPage = () => {
 
       setAllTaxis(taxis);
       setLoading(false);
-      console.log(allTaxis);
     });
 
     return () => unsubscribe();
   }, []);
 
-  // Initialize map
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
 
@@ -88,19 +87,34 @@ const FindTaxiPage = () => {
     }
   }, []);
 
-  // Filter buses based on query
   useEffect(() => {
     const filtered = !searchQuery
       ? allTaxis
       : allTaxis.filter(taxi =>
-          (taxi.destination && taxi.destination.toLowerCase().includes(searchQuery.toLowerCase())) ||
-          (taxi.departure && taxi.departure.toLowerCase().includes(searchQuery.toLowerCase()))
+          taxi.destination.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          taxi.departure.toLowerCase().includes(searchQuery.toLowerCase())
         );
-
     setFilteredTaxis(filtered);
   }, [searchQuery, allTaxis]);
+  const formatRoutePath = (route) => {
+            const departure = route?.departure || 'Unknown';
+            const destination = route?.destination || 'Unknown';
 
-  // Plot markers
+            if (route?.type === 'dynamic' && route?.vias?.length) {
+              const vias = route.vias;
+              const prices = route.viaPrices || [];
+
+              const formattedVias = vias.map((via, idx) => {
+                const price = prices[idx] || 0;
+                return `${via} (${price} UGX)`;
+              }).join(' → ');
+
+              return `${departure} → ${formattedVias} → ${destination}`;
+            }
+
+            return `${departure} → ${destination}`;
+          };
+
   useEffect(() => {
     if (!mapRef.current) return;
 
@@ -109,27 +123,27 @@ const FindTaxiPage = () => {
 
     filteredTaxis.forEach(taxi => {
       const { latitude, longitude } = taxi.location;
-      if (latitude && longitude) {
-        const marker = L.marker([latitude, longitude], {
-          icon: L.icon({
-            iconUrl: 'front-of-bus.png',
-            // iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png',
-            iconSize: [25, 25],
-            // iconSize: [25, 41],
-            iconAnchor: [12, 41],
-            popupAnchor: [1, -34],
-          })
+      // const prices = taxi.route.viaPrices || [];
+      
+
+      const fullRoute=formatRoutePath(taxi.route)
+
+      const marker = L.marker([latitude, longitude], {
+        icon: L.icon({
+          iconUrl: 'front-of-bus.png',
+          iconSize: [25, 25],
+          iconAnchor: [12, 41],
+          popupAnchor: [1, -34],
         })
-        .addTo(mapRef.current)
+      }).addTo(mapRef.current)
         .bindPopup(`
-          <b>${taxi.id}</b><br/>
-          Route: ${taxi.routeName}<br/>
-          From: ${taxi.departure || 'Unknown'}<br/>
-          To: ${taxi.destination || 'Unknown'}<br/>
-          ${taxi.route?.fareAmount ? `Fare: ${taxi.route.fareAmount} UGX` : ''}
+          <b>Bus ID:</b> ${taxi.id}<br/>
+          <b>Route Type:</b> ${taxi.type}<br/>
+          <b>Route:</b> ${fullRoute}<br/>
+          ${taxi.fareAmount ? `<b>Fare:</b> ${taxi.fareAmount} UGX` : ''}
         `);
-        markersRef.current.push(marker);
-      }
+
+      markersRef.current.push(marker);
     });
 
     if (filteredTaxis.length > 1) {
@@ -140,17 +154,13 @@ const FindTaxiPage = () => {
     }
   }, [filteredTaxis]);
 
-  const handleBackClick = () => {
-    navigate('/');
-  };
-
   return (
     <div className="container">
       <Header onProfileClick={() => navigate('/profile')} />
       <main>
         <div className="page">
           <div className="title">
-            <button onClick={handleBackClick}>
+            <button onClick={() => navigate('/')}>
               <i className='bx bxs-left-arrow-circle'></i>
             </button>
             <h2>Find a Taxi Bus</h2>
@@ -166,7 +176,6 @@ const FindTaxiPage = () => {
             />
           </div>
 
-          {/* Message above the map */}
           {loading ? (
             <div className="loading-message">Loading taxi locations...</div>
           ) : filteredTaxis.length === 0 ? (
@@ -177,22 +186,23 @@ const FindTaxiPage = () => {
             </div>
           ) : null}
 
-          {/* Always show map */}
           <div
             id="map"
             ref={mapContainerRef}
             style={{ height: '500px', width: '100%' }}
           />
 
-          {/* Optional: List taxis */}
           <div className="taxi-list">
             {filteredTaxis.slice(0, 5).map(taxi => (
               <div key={taxi.id} className="taxi-card">
                 <div className="taxi-info">
                   <h4>{taxi.id}</h4>
-                  <p>{taxi.routeName}</p>
-                  <p>From: {taxi.departure || 'Unknown'}</p>
-                  <p>To: {taxi.destination || 'Unknown'}</p>
+                  {/* <p>{taxi.departure} → {taxi.destination}</p>
+                  {taxi.vias && taxi.vias.length > 0 && (
+                    <p>Via: {taxi.vias.map(v => v.name).join(', ')}</p>
+                  )} */}
+                  <p>{formatRoutePath(taxi.route)}</p>
+                  <p>Fare: {taxi.fareAmount || 'N/A'} UGX</p>
                 </div>
                 {taxi.driver && (
                   <div className="driver-info">
@@ -210,5 +220,4 @@ const FindTaxiPage = () => {
 };
 
 export default FindTaxiPage;
-
 
