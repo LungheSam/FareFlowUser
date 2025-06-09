@@ -25,9 +25,8 @@ const LoadBalancePage = () => {
       setError('');
       setSuccess('');
       setNewBalance(Number(userData.balance)+Number(amount));
-      // console.log(Number(userData.balance)+Number(amount));
       await updateBalance(Number(amount));
-      await fetch('https://fareflow-server.onrender.com/notify-balance-load', {
+      await fetch('https://fareflowserver-production.up.railway.app/notify-balance-load', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -39,6 +38,7 @@ const LoadBalancePage = () => {
           firstName: userData.firstName,
         })
       });
+      console.log("Message Sent");
       setSuccess(`Successfully loaded ${amount} UGX`);
       setAmount('');
       setTimeout(() => setSuccess(''), 3000);
